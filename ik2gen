@@ -1,0 +1,52 @@
+#!/bin/bash
+
+echo Hello World!
+
+PROJECT_DIR=$PWD
+INSTALL_DIR=#_INSTALL_DIR_#
+IK1GEN_SRC=$INSTALL_DIR/Sources/ik1gen
+PROJECT=$(basename $PROJECT_DIR)
+FILE="ik1genSrc"
+
+if [ ! -d $FILE ]; then
+    echo $FILE does not exist.
+    exit 1;
+fi
+
+copy_files() {
+    echo "Copying files to the destination dir"
+    rm -rf $IK1GEN_SRC
+    cd $PROJECT_DIR
+    ln -s $PROJECT_DIR/$FILE $IK1GEN_SRC
+}
+
+case $1 in
+    build)
+        copy_files
+        cd $INSTALL_DIR
+        echo "Building ik1gen for $PROJECT"
+        swift build -c release
+        rm $PROJECT_DIR/ik1gen
+        cp $INSTALL_DIR.build/release/ik1gen $PROJECT_DIR/
+        ;;
+    edit)
+        copy_files
+        cd $INSTALL_DIR
+        echo "Generating new XCodeProj for ik1gen"
+        swift package generate-xcodeproj
+        ;;
+    xcodeproj)
+        if [ ! -f "ik1gen" ]; then
+            echo "ik1gen does not created for the project"
+            exit 1;
+        fi
+        if [ -f "ik1gen-xcodeproj" ]; then
+            echo "Generating xcodeproj according to the ik1gen-xcodeproj file"
+            sh ik1gen-xcodeproj
+        else 
+            echo "Generating xcodeproj for the root directory"
+            swift package generate-xcodeproj
+        fi
+        ./ik1gen
+        ;;
+esac
