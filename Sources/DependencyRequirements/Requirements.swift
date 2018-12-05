@@ -1,6 +1,11 @@
 
-protocol ModuleRequirements : class {
+public struct DependencyRequirements {
+    public var hello = "World"
 }
 
-protocol MainProjectRequirements : class {
+public protocol ModuleRequirements : class {
+    func foo()
+}
+
+public protocol MainProjectRequirements : class {
 }
