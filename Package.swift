@@ -29,9 +29,9 @@ let package = Package(
     ],
     targets: [
         .target(name: "ik2gen", dependencies: ["k2Utils", "XcodeEdit", "DependencyRequirements"]),
-        .target(name: "ik2proj", dependencies: ["k2Utils", "XcodeEdit"]),
+        .target(name: "ik2proj", dependencies: ["k2Utils", "XcodeEdit", "DependencyRequirements"]),
         .target(name: "ProjectTemplate", dependencies: ["DependencyRequirements"]),
-        .target(name: "DependencyRequirements", dependencies: []),
+        .target(name: "DependencyRequirements", dependencies: ["XcodeEdit"]),
 
     ]
 )

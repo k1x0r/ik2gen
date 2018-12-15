@@ -1,6 +1,7 @@
 #!/bin/bash
 
 echo Hello World!
+set -x
 
 PROJECT_DIR=$PWD
 INSTALL_DIR=#_INSTALL_DIR_#
@@ -21,32 +22,29 @@ copy_files() {
 }
 
 case $1 in
-    build)
-        copy_files
+    project)
         cd $INSTALL_DIR
-        echo "Building ik1gen for $PROJECT"
-        swift build -c release
-        rm $PROJECT_DIR/ik1gen
-        cp $INSTALL_DIR.build/release/ik1gen $PROJECT_DIR/
+        export TARGET_DIR=$PROJECT_DIR
+        ./.build/debug/ik2proj
         ;;
-    edit)
-        copy_files
-        cd $INSTALL_DIR
-        echo "Generating new XCodeProj for ik1gen"
-        swift package generate-xcodeproj
-        ;;
-    xcodeproj)
-        if [ ! -f "ik1gen" ]; then
-            echo "ik1gen does not created for the project"
-            exit 1;
-        fi
-        if [ -f "ik1gen-xcodeproj" ]; then
-            echo "Generating xcodeproj according to the ik1gen-xcodeproj file"
-            sh ik1gen-xcodeproj
-        else 
-            echo "Generating xcodeproj for the root directory"
-            swift package generate-xcodeproj
-        fi
-        ./ik1gen
-        ;;
+    # edit)
+    #     copy_files
+    #     cd $INSTALL_DIR
+    #     echo "Generating new XCodeProj for ik1gen"
+    #     swift package generate-xcodeproj
+    #     ;;
+    # xcodeproj)
+    #     if [ ! -f "ik1gen" ]; then
+    #         echo "ik1gen does not created for the project"
+    #         exit 1;
+    #     fi
+    #     if [ -f "ik1gen-xcodeproj" ]; then
+    #         echo "Generating xcodeproj according to the ik1gen-xcodeproj file"
+    #         sh ik1gen-xcodeproj
+    #     else 
+    #         echo "Generating xcodeproj for the root directory"
+    #         swift package generate-xcodeproj
+    #     fi
+    #     ./ik1gen
+    #     ;;
 esac

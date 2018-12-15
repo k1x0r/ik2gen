@@ -1,15 +1,42 @@
 import k2Utils
 import XcodeEdit
 import Foundation
+import DependencyRequirements
 
 do {
-// as a var
-let dependenciesProject = try XCProjectFile(xcodeprojURL: URL(fileURLWithPath: "/Workspace/RClaymore/Dependencies/Dependencies.xcodeproj"))
 
+let currentDirectory = URL(fileURLWithPath: MainProject.filePath).deletingLastPathComponent().path.appendIfNotEnds("/")
+
+let paths = try ProjectPaths.parse(from: currentDirectory + ".ik2proj")
+    
+let modules = i2genModules.reduce(into: [String : TargetProcessing]()) { (res, next) in
+    res.merge(next.targetsDictionary, uniquingKeysWith: { $1 })
+}
+
+let spmUrl = URL(fileURLWithPath: currentDirectory + paths.spmProject)
+let ret = shell(launchPath: "/usr/bin/swift", arguments: ["package", "generate-xcodeproj"], fromDirectory: spmUrl.deletingLastPathComponent().path)
+print("\(ret.output ?? "<no output from terminal>")\nGenerate XcodeProj returnCode: \(ret.returnCode) ")
+guard ret.returnCode == 0 else {
+    fatalError("Generate-xcodeproj return code is not 0")
+}
+let ik2project : MainProjectRequirements
+if let Class = MainProject.self as? MainIosProjectRequirements.Type {
+    let spmProject = try XCProjectFile(xcodeprojURL: spmUrl)
+    let mainProject = try XCProjectFile(xcodeprojURL: URL(fileURLWithPath: currentDirectory + paths.mainProject))
+    ik2project = Class.init(context: IosProjectContext(spmProject : spmProject, mainProject : mainProject, targets: modules))
+} else if let Class = MainProject.self as? MainSpmProjectRequirements.Type {
+    let spmProject = try XCProjectFile(xcodeprojURL: spmUrl)
+    ik2project = Class.init(context: ProjectContext(spmProject : spmProject, targets: modules))
+} else {
+    fatalError("No supported types found")
+}
+    
+let dependenciesProject = ik2project.context.spmProject
+    
 guard let configurations = dependenciesProject.project.buildConfigurationList.value else {
     fatalError("No build configurations!")
 }
-
+print("Using Modules : \(i2genModules)")
 for ref in configurations.buildConfigurations {
     guard let config = ref.value else {
         continue
@@ -21,22 +48,19 @@ for ref in configurations.buildConfigurations {
         "IPHONEOS_DEPLOYMENT_TARGET" : "9.0",
         "DEBUG_INFORMATION_FORMAT" : config.name == "Release" ? "dwarf-with-dsym" : "dwarf"
     ]) { $1 }
-
+    try ik2project.mainBuildConfigurationLoop(config: config)
 }
+    try ik2project.mainBuildConfigurationDidFinish(configList: configurations)
 
-guard let debug = configurations.configuration(named: "Debug") else{
-    fatalError("No debug configuration found!")
-}
-let debugLan = try debug.copy(with: Guid.random, name: "DebugLan")
-configurations.addBuildConfiguration(debugLan)
 
 print("Groups: \(dependenciesProject.project.groups)")
 try dependenciesProject.addXibsAndStoryboards()
     
 for ref in dependenciesProject.project.targets {
-    guard let target = ref.value, let buildConfig = target.buildConfigurationList.value else {
+    guard let target = ref.value, let buildConfig = target.buildConfigurationList.value, !target.name.hasSuffix("PackageDescription") else {
         continue
     }
+    let module = modules[target.name]
     for ref in buildConfig.buildConfigurations {
         guard let bConfig = ref.value else {
             continue
@@ -47,99 +71,78 @@ for ref in dependenciesProject.project.targets {
             "PRODUCT_BUNDLE_IDENTIFIER" : "com.k1x.\(target.name)",
             "PRODUCT_NAME" : target.name,
             "PRODUCT_MODULE_NAME" : target.name,
+            "APPLICATION_EXTENSION_API_ONLY" : module?.extensionApiOnly ?? true ? "YES" : "NO"
         ]) { $1 }
         
     }
+    try module?.process(target: target)
+    try ik2project.targetBuildConfigurationLoop(target: target, list: buildConfig)
+
+}
+try ik2project.targetBuildConfigurationDidFinish()
+
     
-    /// BuildConfig Loop
-    if let debug = buildConfig.configuration(named: "Debug") {
-        let debugLan = try debug.copy(with: Guid.random, name: "DebugLan")
-        buildConfig.addBuildConfiguration(debugLan)
+
+
+/// Ok, here is a problem with the same framework ober multiple targets
+/// We need to add only single instance of jsCore to two targets in completely separate packages
+/// Maybe to have a single holder of extenal framework references?
+/// Something like class { refs : [String : FrameworkRef] }
+/// But in this case we'll have to look by name
+/// Or maybe Set<FrameworkRef>
+/// So we'll get unique references. And we'll be able to look by any param we want
+/// The question remains about some context that will be global or local based on whatever requirements
+
+for (targetName, module) in modules {
+    guard let target = ik2project.context.spmProject.project.target(named: targetName) else {
+        continue
     }
-    
+    try module.addFramesorks(context: ik2project.context, target: target)
 }
-    
-/// TO BE PUT IN Module Config
-dependenciesProject.project.target(named: "COpenSSL")?.setBuildSetting(key: "WARNING_CFLAGS", value: "-w")
 
+guard let frameworksGroupRef = dependenciesProject.project.mainGroup.value?.group(with: "ik2genFrameworks"),
+      let frameworksGroup = frameworksGroupRef.value else {
+        fatalError("No external group!")
+}
+let spmFrameworks = ik2project.context.spmFrameworks.map({ dependenciesProject.project.allObjects.createReference(value: $1 as PBXReference) })
+frameworksGroup.children.append(contentsOf: spmFrameworks)
+    
+try dependenciesProject.write(format: .openStep)
 
-    
-let jsCore = dependenciesProject.project.newFrameworkReference(path: "System/Library/Frameworks/JavaScriptCore.framework")
-try dependenciesProject.project.addFramework(framework: jsCore, targetNames: [(.library, "XMLHTTPRequest"), (.library, "RClaymoreShared")])
-///
-    
-    
-// as a var
-let mainProject = try XCProjectFile(xcodeprojURL: URL(fileURLWithPath: "/Workspace/RClaymore/RClaymore.xcodeproj"))
-
-// as a var
-guard let externalRef = mainProject.project.mainGroup.value?.subGroups.first(where: { $0.value?.path == "External" }), let externalGroup = externalRef.value else {
-    fatalError("External Group not found!")
+guard let iosProject = ik2project as? MainIosProjectRequirements else {
+    print("Success")
+    exit(0)
 }
     
 // as a var
-guard let mainTarget =  mainProject.project.target(named: "RClaymore") else {
-    fatalError("Main Target not found!")
+let mainProject = iosProject.iosContext.mainProject // try XCProjectFile(xcodeprojURL: URL(fileURLWithPath: "/Workspace/RClaymore/RClaymore.xcodeproj"))
+
+// as a var
+
+let externalGroupName = iosProject.externalGroupName
+    
+guard let externalGroupRef = mainProject.project.mainGroup.value?.group(with: externalGroupName),
+      let externalGroup = externalGroupRef.value else {
+    fatalError("No external group!")
 }
 
 mainProject.project.removeFrameworks(frameworks: externalGroup.frameworks, groups: [externalGroup])
-for ref in dependenciesProject.project.targets {
-    guard let target = ref.value, !target.name.hasSuffix("PackageDescription") else {
-        continue
-    }
-    let framework = mainProject.project.newFrameworkReference(path: "\(target.name).framework", sourceTree: .relativeTo(.buildProductsDir))
-    /// ????? how to resolve
-    /// just add this loop to the delegate with the framework reference argument
     
-    try mainProject.project.addFramework(framework: framework, group: externalRef, targets: [(target.name == "XMLHTTPRequest" ? .both : .embeddedBinary, mainTarget)])
-}
-
-guard let targetConfig = dependenciesProject.project.target(named: "Dependencies")?.buildConfigurationList.value?.buildConfigurations.first?.value else {
-    fatalError("Swift flags not found for dependencies project")
-}
-
-var swiftFlags : String
-if let stringValue = targetConfig.buildSettings["OTHER_SWIFT_FLAGS"] as? String {
-    swiftFlags = stringValue
-} else if let array = targetConfig.buildSettings["OTHER_SWIFT_FLAGS"] as? [String] {
-    swiftFlags = array.joined(separator: " ")
-} else {
-    fatalError("Other swift flags not found!")
-}
-
-print("Swift flags: \(swiftFlags)")
-guard let newFlags = swiftFlags.substring(fromFirst: " ") else {
-    fatalError("swiftFlags is nil!")
-}
-swiftFlags = newFlags
-
-let smParsedConfig = swiftFlags
-    .replacingOccurrences(of: "-Xcc ", with: " ")
-    .replacingOccurrences(of: "$(SRCROOT)/", with: "$(SRCROOT)/Dependencies/")
-    .split(separator: " ")
-
-let headerSearchPath = smParsedConfig.map({ subStr in
-    let str = subStr.description
-    return "$" + (str.substring(fromFirst: "$")?.substring(toLast: "/") ?? "")
-}).joined(separator: " ")
-
-let flagsString = smParsedConfig.joined(separator: " -Xcc ")
-let otherSwiftFlags = "$(inherited) $(DEFINES) -Xcc " + flagsString
-
-print("SM Swift flags: \(otherSwiftFlags)")
-
-guard let switchMapsConfigs = mainTarget.buildConfigurationList.value?.buildConfigurations else {
-    fatalError("No Configurations")
-}
-for ref in switchMapsConfigs {
-    guard let config = ref.value else {
-        continue
-    }
-    config.buildSettings["OTHER_SWIFT_FLAGS"] = otherSwiftFlags
-    config.buildSettings["HEADER_SEARCH_PATHS"] = headerSearchPath
-}
+/// here we need preffered linkage of framework and linkage to the target...
+/// for example for XMLHttpRequest for target RClaymore is Both and for Share is library. For everything else for RClaymore is embeddedBinary, for Share is library...
+/// Ok... resolved, just send a tuple with prefferedLinkageType and Framework reference
+/// also we need to know is it safe or not to link the framework and filter that
+/// That's why we should pass some Module object along with framework reference...
+/// But what we need to do in case if it's empty....
+/// Provide optional value with default value should be ok in case if there's no other places where it's used
+/// And it'll provide additional benefit for end user to determine default values
+/// Summarize: providex [(Module?, PBXFileReference)]
+try iosProject.addNewFrameworks()
     
-try dependenciesProject.write(format: .openStep)
+let mainFrameworks = ik2project.context.frameworks.map({ mainProject.project.allObjects.createReference(value: $1 as PBXReference) })
+externalGroup.children.append(contentsOf: mainFrameworks)
+
+
 try mainProject.write(format: .openStep)
 
 } catch {

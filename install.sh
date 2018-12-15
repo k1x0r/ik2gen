@@ -1,8 +1,12 @@
-#!/bin/bash
+#!/bin/bash 
+set -v -x #echo on
 
-rm /usr/local/bin/ik1gen
-chmod 755 ik1gen
-cp ik1gen /usr/local/bin/
+echo "Removing old ik2gen..."
+rm /usr/local/bin/ik2gen
+chmod 755 ik2gen
+cp ik2gen /usr/local/bin/
 echo "Installation directory: $PWD"
-sed -i '' "s|#_INSTALL_DIR_#|$PWD/|g" "/usr/local/bin/ik1gen"
+sed -i '' "s|#_INSTALL_DIR_#|$PWD/|g" "/usr/local/bin/ik2gen"
+
+
 echo Done
