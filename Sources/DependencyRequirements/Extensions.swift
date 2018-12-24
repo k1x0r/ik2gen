@@ -59,8 +59,8 @@ public extension ProjectContext {
     
     /// To be used in module dependencies for system frameworks
     /// If create the reference directly the way as in this method must be used. Or better to create a new one here nearby.
-    func spmFramework(with path : String) -> PBXFileReference {
-        let reference = spmProject.project.newFrameworkReference(path: path)
+    func spmFramework(with path : String, type : PBXFileType = .framework) -> PBXFileReference {
+        let reference = spmProject.project.newFrameworkReference(path: path, fileType: type)
         let key = reference.key
         if let framework = spmFrameworks[key] {
             return framework
@@ -123,6 +123,35 @@ public extension MainIosProjectRequirements {
         let otherSwiftFlags = "$(inherited) $(DEFINES) -Xcc " + flagsString
         
         return (otherSwiftFlags, headerSearchPath)
+    }
+    
+}
+
+public extension PBXTarget {
+    
+    func addRswift(project : PBXProject, shellAppend: String = "") throws {
+        guard let (path, group) : (String, PBXGroup) = allObjects.objects.firstMap(where: { (key, value) in
+            guard let group = value as? PBXGroup, group.name == self.name,
+                  let path = group.path, !path.isEmpty else {
+                return nil
+            }
+            return (path, group)
+        }) else {
+            throw "Could not find group for target '\(name)'".error()
+        }
+        let phase = buildPhase(of: PBXShellScriptBuildPhase.self) { (phases, ref) in
+            phases.insert(ref, at: 0)
+        }
+        phase.inputPaths = [ "$TEMP_DIR/rswift-lastrun" ]
+        phase.outputPaths = [ "$SRCROOT/\(path)/R.generated.swift" ]
+        phase.shellScript = "# Type a script or drag a script file from your workspace to insert its path.\n\"$SRCROOT/../rswift\" generate \"$SRCROOT/\(path)/R.generated.swift\"" + shellAppend
+        
+        if !group.fileRefs.contains(where: { $0.value?.path?.contains("R.generated.swift") ?? false }) {
+            try project.addSourceFiles(files: [
+                project.newFileReference(name: "R.generated.swift", path: "R.generated.swift", sourceTree: .group),
+            ], group: allObjects.createReference(value: group), targets: [self])
+        }
+        
     }
     
 }
