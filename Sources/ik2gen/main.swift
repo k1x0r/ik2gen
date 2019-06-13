@@ -41,16 +41,18 @@ for ref in configurations.buildConfigurations {
     guard let config = ref.value else {
         continue
     }
-    config.buildSettings = config.buildSettings.merging([
-        "SDKROOT" : "iphoneos",
-        "CURRENT_PROJECT_VERSION" : "1.0",
-        "ENABLE_BITCODE" : "YES",
-        "IPHONEOS_DEPLOYMENT_TARGET" : "9.0",
-        "DEBUG_INFORMATION_FORMAT" : config.name == "Release" ? "dwarf-with-dsym" : "dwarf"
-    ]) { $1 }
+    if ik2project is MainIosProjectRequirements {
+        config.buildSettings = config.buildSettings.merging([
+            "SDKROOT" : "iphoneos",
+            "CURRENT_PROJECT_VERSION" : "1.0",
+            "ENABLE_BITCODE" : "YES",
+            "IPHONEOS_DEPLOYMENT_TARGET" : "9.0",
+            "DEBUG_INFORMATION_FORMAT" : config.name == "Release" ? "dwarf-with-dsym" : "dwarf"
+        ]) { $1 }
+    }
     try ik2project.mainBuildConfigurationLoop(config: config)
 }
-    try ik2project.mainBuildConfigurationDidFinish(configList: configurations)
+try ik2project.mainBuildConfigurationDidFinish(configList: configurations)
 
 
 print("Groups: \(dependenciesProject.project.groups)")
@@ -65,14 +67,15 @@ for ref in dependenciesProject.project.targets {
         guard let bConfig = ref.value else {
             continue
         }
-
         bConfig.buildSettings.add(for: "FRAMEWORK_SEARCH_PATHS", values: ["$(SDKROOT)/usr/lib"])
-        bConfig.buildSettings = bConfig.buildSettings.merging([
-            "PRODUCT_BUNDLE_IDENTIFIER" : "com.k1x.\(target.name)",
-            "PRODUCT_NAME" : target.name,
-            "PRODUCT_MODULE_NAME" : target.name,
-            "APPLICATION_EXTENSION_API_ONLY" : module?.extensionApiOnly ?? true ? "YES" : "NO"
-        ]) { $1 }
+        if ik2project is MainIosProjectRequirements {
+            bConfig.buildSettings = bConfig.buildSettings.merging([
+                "PRODUCT_BUNDLE_IDENTIFIER" : "com.k1x.\(target.name)",
+                "PRODUCT_NAME" : target.name,
+                "PRODUCT_MODULE_NAME" : target.name,
+                "APPLICATION_EXTENSION_API_ONLY" : module?.extensionApiOnly ?? true ? "YES" : "NO"
+            ]) { $1 }
+        }
         
     }
     try module?.process(target: target)
@@ -97,7 +100,7 @@ for (targetName, module) in modules {
     guard let target = ik2project.context.spmProject.project.target(named: targetName) else {
         continue
     }
-    try module.addFramesorks(context: ik2project.context, target: target)
+    try module.addFrameworks(context: ik2project.context, target: target)
 }
 
 guard let frameworksGroupRef = dependenciesProject.project.mainGroup.value?.group(with: "ik2genFrameworks"),

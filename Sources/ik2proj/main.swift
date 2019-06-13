@@ -15,8 +15,6 @@ do {
     }
     print("Target directory: \(targetDirectory)")
 
-//    let currentDirectory = "/Workspace/RClaymore/"
-//    let ik2genRootDir = "/Workspace/ik2gen/"
     let paths = try ProjectPaths.parse(from: targetDirectory + ".ik2proj")
     
     let spmUrl = URL(fileURLWithPath: targetDirectory + paths.spmProject)

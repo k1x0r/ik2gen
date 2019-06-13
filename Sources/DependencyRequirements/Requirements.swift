@@ -1,14 +1,22 @@
 import XcodeEdit
 
+public enum ProjectPlatform {
+    case macOS
+    case iOS
+    case watchOS
+    case tvOS
+}
+
 public class ProjectContext {
     
     public var frameworks : [PBXReferenceKey : PBXFileReference] = [:]
     public var spmFrameworks : [PBXReferenceKey : PBXFileReference] = [:]
-
+    
     public var spmProject : XCProjectFile
     public var targets : [String : TargetProcessing]
-
+    open var platform : ProjectPlatform
     public init(spmProject : XCProjectFile, targets : [String : TargetProcessing]) {
+        self.platform = .macOS
         self.spmProject = spmProject
         self.targets = targets
     }
@@ -21,6 +29,7 @@ public class IosProjectContext : ProjectContext {
     public init(spmProject : XCProjectFile, mainProject : XCProjectFile, targets : [String : TargetProcessing]) {
         self.mainProject = mainProject
         super.init(spmProject: spmProject, targets: targets)
+        self.platform = .iOS
     }
     
     
@@ -52,6 +61,15 @@ public protocol MainSpmProjectRequirements : MainProjectRequirements {
 
     init(context : ProjectContext)
 
+}
+
+public extension MainProjectRequirements {
+    
+    @inline(__always)
+    var targets : [Reference<PBXTarget>] {
+        return context.spmProject.project.targets
+    }
+    
 }
 
 public protocol MainProjectRequirements : class {
@@ -90,7 +108,7 @@ open class TargetProcessing {
     open func process(target: PBXTarget) throws {
         try process?(self, target)
     }
-    open func addFramesorks(context: ProjectContext, target : PBXTarget) throws {
+    open func addFrameworks(context: ProjectContext, target : PBXTarget) throws {
         try addFrameworks?(self, context, target)
     }
 }

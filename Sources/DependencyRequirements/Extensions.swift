@@ -35,7 +35,7 @@ public extension PBXReference {
 
 public extension ProjectContext {
     
-    func frameworks(for targetName: String, allObjects : AllObjects? = nil) throws -> [(TargetProcessing?, PBXFileReference)] {
+    func frameworks(for targetName: String, to allObjects : AllObjects? = nil) throws -> [(TargetProcessing?, PBXFileReference)] {
         guard let target = spmProject.project.target(named: targetName) else {
             throw "Target not found!".error()
         }
@@ -59,8 +59,8 @@ public extension ProjectContext {
     
     /// To be used in module dependencies for system frameworks
     /// If create the reference directly the way as in this method must be used. Or better to create a new one here nearby.
-    func spmFramework(with path : String, type : PBXFileType = .framework) -> PBXFileReference {
-        let reference = spmProject.project.newFrameworkReference(path: path, fileType: type)
+    func spmFramework(with path : String, sourceTree : SourceTree = .relativeTo(.sdkRoot), type : PBXFileType = .framework) -> PBXFileReference {
+        let reference = spmProject.project.newFrameworkReference(path: path, sourceTree: sourceTree, fileType: type)
         let key = reference.key
         if let framework = spmFrameworks[key] {
             return framework
@@ -74,13 +74,16 @@ public extension ProjectContext {
 
 public extension MainIosProjectRequirements {
     
-    func copyFrameworks(from: String, to : String, linkType : (TargetProcessing?, PBXFileReference)->(PBXProject.FrameworkType)) throws {
-        var frameworks = try self.context.frameworks(for: from, allObjects: iosContext.mainProject.project.allObjects)
+    func copyFrameworks(from: String, to : String, linkType : (TargetProcessing?, PBXFileReference)->(PBXProject.FrameworkType?)) throws {
+        let frameworks = try self.context.frameworks(for: from, to: iosContext.mainProject.project.allObjects)
         guard let mainTarget =  iosContext.mainProject.project.target(named: to) else {
-            throw "Target '\(from)' is not found!".error()
+            throw "Target '\(to)' is not found!".error()
         }
         for (target, framework) in frameworks {
-            try iosContext.mainProject.project.addFramework(framework: framework, targets: [(linkType(target, framework), mainTarget)])
+            guard let fLinkType = linkType(target, framework) else {
+                continue
+            }
+            try iosContext.mainProject.project.addFramework(framework: framework, targets: [(fLinkType, mainTarget)])
         }
         let (otherSwiftFlags, headerSearchPath) = try swiftFlags(from: from)
         mainTarget.updateBuildSettings([

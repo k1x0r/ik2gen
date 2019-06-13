@@ -7,25 +7,13 @@ PROJECT_DIR=$PWD
 INSTALL_DIR=#_INSTALL_DIR_#
 IK1GEN_SRC=$INSTALL_DIR/Sources/ik1gen
 PROJECT=$(basename $PROJECT_DIR)
-FILE="ik1genSrc"
 
-if [ ! -d $FILE ]; then
-    echo $FILE does not exist.
-    exit 1;
-fi
-
-copy_files() {
-    echo "Copying files to the destination dir"
-    rm -rf $IK1GEN_SRC
-    cd $PROJECT_DIR
-    ln -s $PROJECT_DIR/$FILE $IK1GEN_SRC
-}
 
 case $1 in
     project)
         cd $INSTALL_DIR
         export TARGET_DIR=$PROJECT_DIR
-        ./.build/debug/ik2proj
+        ./.build/release/ik2proj
         ;;
     # edit)
     #     copy_files
