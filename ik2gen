@@ -5,34 +5,32 @@ set -x
 
 PROJECT_DIR=$PWD
 INSTALL_DIR=#_INSTALL_DIR_#
-IK1GEN_SRC=$INSTALL_DIR/Sources/ik1gen
 PROJECT=$(basename $PROJECT_DIR)
 
+proj() {
+    cd $INSTALL_DIR
+    export TARGET_DIR=$PROJECT_DIR
+    export INSTALL_DIR=$INSTALL_DIR
+    ./.build/release/ik2proj
+}
+
+gen() {
+    cd $PROJECT_DIR
+    xcodebuild -project ik2gen.xcodeproj -target ik2gen
+    ./build/Release/ik2gen
+}
 
 case $1 in
-    project)
-        cd $INSTALL_DIR
-        export TARGET_DIR=$PROJECT_DIR
-        ./.build/release/ik2proj
+    proj)
+        proj
         ;;
-    # edit)
-    #     copy_files
-    #     cd $INSTALL_DIR
-    #     echo "Generating new XCodeProj for ik1gen"
-    #     swift package generate-xcodeproj
-    #     ;;
-    # xcodeproj)
-    #     if [ ! -f "ik1gen" ]; then
-    #         echo "ik1gen does not created for the project"
-    #         exit 1;
-    #     fi
-    #     if [ -f "ik1gen-xcodeproj" ]; then
-    #         echo "Generating xcodeproj according to the ik1gen-xcodeproj file"
-    #         sh ik1gen-xcodeproj
-    #     else 
-    #         echo "Generating xcodeproj for the root directory"
-    #         swift package generate-xcodeproj
-    #     fi
-    #     ./ik1gen
-    #     ;;
+    gen)
+        gen
+        ;;
+    genproj)
+        proj
+        gen
+        ;;
 esac
+
+

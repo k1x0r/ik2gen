@@ -2,15 +2,22 @@ import Foundation
 import XcodeEdit
 import DependencyRequirements
 
+func getEnvironmentVar(_ name: String) -> String? {
+    guard let rawValue = getenv(name) else { return nil }
+    return String(utf8String: rawValue)
+}
+
 do {
     //// The project from which Package.swift is retrieved
     // current dir + path to project. Let's call this SPM project. Maybe from file .ik2proj because it's permanent. If the file is not found then we throw an error and display error message
     
     // remove Sources/ik2proj/main.swift
-    let ik2genRootDir = URL(fileURLWithPath: #file).deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
-        .path.appendIfNotEnds("/")
-    print("Root directory: \(ik2genRootDir)")
-    guard let targetDirectory =  ProcessInfo.processInfo.environment["TARGET_DIR"]?.appendIfNotEnds("/") else {
+    // print("env \(ProcessInfo.processInfo.environment)")
+    guard let ik2genRootDir = ProcessInfo.processInfo.environment["INSTALL_DIR"]?.appendIfNotEnds("/") else {
+        fatalError("Couldn't get ik2gen install directory")
+    }
+    print("ik2gen install directory: \(ik2genRootDir)")
+    guard let targetDirectory = ProcessInfo.processInfo.environment["TARGET_DIR"]?.appendIfNotEnds("/") else {
         fatalError("Could not get current directory")
     }
     print("Target directory: \(targetDirectory)")
