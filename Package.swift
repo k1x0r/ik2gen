@@ -1,9 +1,12 @@
-// swift-tools-version:4.0
+// swift-tools-version:5.2
 
 import PackageDescription
 
 let package = Package(
     name: "ik2gen",
+    platforms: [
+        .macOS(.v10_14),
+    ],
     products: [
         .executable(
             name: "ik2gen",
@@ -24,8 +27,8 @@ let package = Package(
 
     ],
     dependencies: [
-        .package(url: "https://git.lan/k2utils.git", .branch("master")),
-        .package(url: "https://git.lan/xcodeedit.git", from: "2.0.0"),
+        .package(name: "k2Utils", url: "https://github.com/k1x0r/k2utils.git", .branch("master")),
+        .package(name: "XcodeEdit", url: "https://github.com/k1x0r/XcodeEdit.git", .branch("master")),
     ],
     targets: [
         .target(name: "ik2gen", dependencies: ["k2Utils", "XcodeEdit", "DependencyRequirements"]),
