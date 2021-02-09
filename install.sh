@@ -1,6 +1,9 @@
 #!/bin/bash 
 set -v -x #echo on
 
+swift build --target ik2proj -c release
+swift package generate-xcodeproj
+
 echo "Removing old ik2gen..."
 rm /usr/local/bin/ik2gen
 chmod 755 ik2gen

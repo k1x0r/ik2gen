@@ -75,26 +75,46 @@ public extension ProjectContext {
 
 public extension MainIosProjectRequirements {
     
-    func copyFrameworks(from: String, to : String, linkType : (TargetProcessing?, PBXFileReference)->(PBXProject.FrameworkType?)) throws {
+    @inlinable
+    func targetConfig(for target: String) -> XCBuildConfiguration? {
+        return iosContext.spmProject.project.target(named: target)?.buildConfigurationList.value?.buildConfigurations.first?.value 
+    }
+    
+    func copyFrameworks(from: String, to : [String], linkType : (TargetProcessing?, PBXFileReference)->(PBXProject.FrameworkType?)) throws {
         let frameworks = try self.context.frameworks(for: from, to: iosContext.mainProject.project.allObjects)
-        guard let mainTarget =  iosContext.mainProject.project.target(named: to) else {
-            throw "Target '\(to)' is not found!".error()
+        let targets = to.compactMap { iosContext.mainProject.project.target(named: $0) }
+        guard to.count == targets.count else {
+            throw "Not all targets '\(to)' were found!".error()
         }
         for (target, framework) in frameworks {
             guard let fLinkType = linkType(target, framework) else {
                 continue
             }
-            try iosContext.mainProject.project.addFramework(framework: framework, targets: [(fLinkType, mainTarget)])
+            let targetsWithType = targets.map { (fLinkType, $0) }
+            try iosContext.mainProject.project.addFramework(framework: framework, targets: targetsWithType)
         }
         let (otherSwiftFlags, headerSearchPath) = try swiftFlags(from: from)
-        mainTarget.updateBuildSettings([
-            "OTHER_SWIFT_FLAGS" : otherSwiftFlags,
-            "HEADER_SEARCH_PATHS" : headerSearchPath
-        ])
+        guard let originalConfig = targetConfig(for: from),
+              let headerSearchPaths = originalConfig.buildSettings["HEADER_SEARCH_PATHS"] as? [String] else {
+            throw "Couldn't find an original configuration".error()
+        }
+        let sourceHeaderSearchPaths = headerSearchPaths.map {
+            $0.replacingOccurrences(of: "$(SRCROOT)/", with: "$(SRCROOT)/Dependencies/")
+        }
+        do {
+            for target in targets {
+                target.updateBuildSettings([
+                    "OTHER_SWIFT_FLAGS" : otherSwiftFlags,
+                    "HEADER_SEARCH_PATHS" : sourceHeaderSearchPaths
+                ])
+            }
+        } catch {
+            print("Error with processing swift flags: \(error)")
+        }
     }
     
     func swiftFlags(from target : String) throws -> (flags: String, headerSearchPath: String) {
-        guard let targetConfig = iosContext.spmProject.project.target(named: target)?.buildConfigurationList.value?.buildConfigurations.first?.value else {
+        guard let targetConfig = targetConfig(for: target) else {
             throw "Swift flags not found for dependencies project".error()
         }
         
@@ -104,7 +124,7 @@ public extension MainIosProjectRequirements {
         } else if let array = targetConfig.buildSettings["OTHER_SWIFT_FLAGS"] as? [String] {
             swiftFlags = array.joined(separator: " ")
         } else {
-            throw "Other swift flags not found!".error()
+            swiftFlags = ""
         }
         
         print("Swift flags: \(swiftFlags)")
