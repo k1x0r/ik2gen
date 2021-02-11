@@ -51,10 +51,18 @@ public extension ProjectContext {
             if let framework = frameworks[key] {
                 return (targets[name], framework)
             } else {
-                let clone = fileRef.clone(to: allObjects ?? spmProject.project.allObjects)
+                let guid : Guid
+                if let name = fileRef.lastPathComponentOrName {
+                    guid = Guid("FR-" + name.guidStyle)
+                } else {
+                    guid = Guid.random
+                }
+                let clone = fileRef.clone(to: allObjects ?? spmProject.project.allObjects, guid: guid)
                 frameworks[key] = clone
                 return (targets[name], clone)
             }
+        }).sorted(by: {
+            $0.1.lastPathComponentOrName < $1.1.lastPathComponentOrName
         })
     }
     
@@ -109,6 +117,7 @@ public extension MainIosProjectRequirements {
     
     func copyFrameworks(from: String, to : [String], linkType : (TargetProcessing?, PBXFileReference)->(PBXProject.FrameworkType?)) throws {
         let frameworks = try context.frameworks(for: from, to: iosContext.mainProject.project.allObjects)
+        
         let targets = to.compactMap { iosContext.mainProject.project.target(named: $0) }
         guard to.count == targets.count else {
             throw "Not all targets '\(to)' were found!".error()
