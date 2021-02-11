@@ -103,12 +103,6 @@ for (targetName, module) in modules {
     try module.addFrameworks(context: ik2project.context, target: target)
 }
 
-guard let frameworksGroupRef = dependenciesProject.project.mainGroup.value?.group(with: "ik2genFrameworks"),
-      let frameworksGroup = frameworksGroupRef.value else {
-        fatalError("No external group!")
-}
-let spmFrameworks = ik2project.context.spmFrameworks.map({ dependenciesProject.project.allObjects.createReference(value: $1 as PBXReference) })
-frameworksGroup.children.append(contentsOf: spmFrameworks)
     
 try dependenciesProject.write(format: .openStep)
 
@@ -118,32 +112,10 @@ guard let iosProject = ik2project as? MainIosProjectRequirements else {
 }
     
 // as a var
-let mainProject = iosProject.iosContext.mainProject // try XCProjectFile(xcodeprojURL: URL(fileURLWithPath: "/Workspace/RClaymore/RClaymore.xcodeproj"))
+let mainProject = iosProject.iosContext.mainProject
 
-// as a var
-
-let externalGroupName = iosProject.externalGroupName
-    
-guard let externalGroupRef = mainProject.project.mainGroup.value?.group(with: externalGroupName),
-      let externalGroup = externalGroupRef.value else {
-    fatalError("No external group!")
-}
-
-mainProject.project.removeFrameworks(frameworks: externalGroup.frameworks, groups: [externalGroup])
-    
-/// here we need preffered linkage of framework and linkage to the target...
-/// for example for XMLHttpRequest for target RClaymore is Both and for Share is library. For everything else for RClaymore is embeddedBinary, for Share is library...
-/// Ok... resolved, just send a tuple with prefferedLinkageType and Framework reference
-/// also we need to know is it safe or not to link the framework and filter that
-/// That's why we should pass some Module object along with framework reference...
-/// But what we need to do in case if it's empty....
-/// Provide optional value with default value should be ok in case if there's no other places where it's used
-/// And it'll provide additional benefit for end user to determine default values
-/// Summarize: providex [(Module?, PBXFileReference)]
+mainProject.project.removeFrameworks(frameworks: iosProject.externalGroup.frameworks, groups: [iosProject.externalGroup])
 try iosProject.addNewFrameworks()
-    
-let mainFrameworks = ik2project.context.frameworks.map({ mainProject.project.allObjects.createReference(value: $1 as PBXReference) })
-externalGroup.children.append(contentsOf: mainFrameworks)
 
 
 try mainProject.write(format: .openStep)
