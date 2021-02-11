@@ -70,6 +70,33 @@ public extension ProjectContext {
             return reference
         }
     }
+    
+    func deletePackageDescriptionTargets()  {
+        var guids = [Guid]()
+        for targetRef in spmProject.project.targets {
+            guard let target = targetRef.value, target.name.hasSuffix("PackageDescription") else {
+                continue
+            }
+            guids.append(targetRef.id)
+            if let buildConfigList = target.buildConfigurationList.value {
+                for configRef in buildConfigList.buildConfigurations {
+                    guids.append(configRef.id)
+                }
+            }
+            for buildPhaseRef in target.buildPhases {
+                guids.append(buildPhaseRef.id)
+                guard let buildPhase = buildPhaseRef.value else {
+                    continue
+                }
+                for buildFileRef in buildPhase.files {
+                    guids.append(buildFileRef.id)
+                }
+            }
+        }
+        for guid in guids {
+            spmProject.project.allObjects.objects.removeValue(forKey: guid)
+        }
+    }
 
 }
 
@@ -81,7 +108,7 @@ public extension MainIosProjectRequirements {
     }
     
     func copyFrameworks(from: String, to : [String], linkType : (TargetProcessing?, PBXFileReference)->(PBXProject.FrameworkType?)) throws {
-        let frameworks = try self.context.frameworks(for: from, to: iosContext.mainProject.project.allObjects)
+        let frameworks = try context.frameworks(for: from, to: iosContext.mainProject.project.allObjects)
         let targets = to.compactMap { iosContext.mainProject.project.target(named: $0) }
         guard to.count == targets.count else {
             throw "Not all targets '\(to)' were found!".error()
@@ -93,7 +120,6 @@ public extension MainIosProjectRequirements {
             let targetsWithType = targets.map { (fLinkType, $0) }
             try iosContext.mainProject.project.addFramework(framework: framework, targets: targetsWithType)
         }
-        let (otherSwiftFlags, headerSearchPath) = try swiftFlags(from: from)
         guard let originalConfig = targetConfig(for: from),
               let headerSearchPaths = originalConfig.buildSettings["HEADER_SEARCH_PATHS"] as? [String] else {
             throw "Couldn't find an original configuration".error()
@@ -101,6 +127,7 @@ public extension MainIosProjectRequirements {
         let sourceHeaderSearchPaths = headerSearchPaths.map {
             $0.replacingOccurrences(of: "$(SRCROOT)/", with: "$(SRCROOT)/Dependencies/")
         }
+        let otherSwiftFlags = try swiftFlags(from: from)
         do {
             for target in targets {
                 target.updateBuildSettings([
@@ -113,7 +140,7 @@ public extension MainIosProjectRequirements {
         }
     }
     
-    func swiftFlags(from target : String) throws -> (flags: String, headerSearchPath: String) {
+    func swiftFlags(from target : String) throws -> String {
         guard let targetConfig = targetConfig(for: target) else {
             throw "Swift flags not found for dependencies project".error()
         }
@@ -126,33 +153,20 @@ public extension MainIosProjectRequirements {
         } else {
             swiftFlags = ""
         }
-        
         print("Swift flags: \(swiftFlags)")
-        guard let newFlags = swiftFlags.substring(fromFirst: " ") else {
-            throw "swiftFlags is nil!".error()
-        }
-        swiftFlags = newFlags
+        swiftFlags = swiftFlags.substring(fromFirst: " ") ?? swiftFlags
         
         let smParsedConfig = swiftFlags
             .replacingOccurrences(of: "-Xcc ", with: " ")
             .replacingOccurrences(of: "$(SRCROOT)/", with: "$(SRCROOT)/Dependencies/")
             .split(separator: " ")
-        
-        let headerSearchPath = smParsedConfig.map({ subStr in
-            let str = subStr.description
-            return "$" + (str.substring(fromFirst: "$")?.substring(toLast: "/") ?? "")
-        }).joined(separator: " ")
-        
-        let flagsString = smParsedConfig.joined(separator: " -Xcc ")
-        let otherSwiftFlags = "$(inherited) $(DEFINES) -Xcc " + flagsString
-        
-        return (otherSwiftFlags, headerSearchPath)
+        return "$(inherited) $(DEFINES) -Xcc " + smParsedConfig.joined(separator: " -Xcc ")
     }
     
 }
 
 public extension PBXTarget {
-    
+        
     func addRswift(project : PBXProject, shellAppend: String = "") throws {
         guard let (path, group) : (String, PBXGroup) = allObjects.objects.firstMap(where: { (key, value) in
             guard let group = value as? PBXGroup, group.name == self.name,
@@ -185,6 +199,7 @@ public extension ModuleRequirements {
     static var targetsDictionary : [String : TargetProcessing] {
         return Dictionary(uniqueKeysWithValues: Self.targets.map({ ($0.name, $0) }) )
     }
+
 }
 
 public func shell(launchPath: String, arguments: [String], fromDirectory : String) -> (returnCode: Int32, output: String?) {
