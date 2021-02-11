@@ -53,7 +53,7 @@ public extension ProjectContext {
             } else {
                 let guid : Guid
                 if let name = fileRef.lastPathComponentOrName {
-                    guid = Guid("FR-" + name.guidStyle)
+                    guid = Guid("FREF-" + name.guidStyle)
                 } else {
                     guid = Guid.random
                 }
@@ -104,6 +104,10 @@ public extension ProjectContext {
         for guid in guids {
             spmProject.project.allObjects.objects.removeValue(forKey: guid)
         }
+        spmProject.project.targets = spmProject.project.targets.filter {
+            !$0.id.value.hasSuffix("PackageDescription")
+        }
+        spmProject.project.applyChanges()
     }
 
 }
@@ -127,8 +131,12 @@ public extension MainIosProjectRequirements {
                 continue
             }
             let targetsWithType = targets.map { (fLinkType, $0) }
-            try iosContext.mainProject.project.addFramework(framework: framework, targets: targetsWithType)
-        }
+            try iosContext.mainProject.project.addFramework(framework: framework, group: externalGroup, targets: targetsWithType)
+        } 
+        externalGroup.children.sort(by: {
+            $0.value?.lastPathComponentOrName < $1.value?.lastPathComponentOrName
+        })
+        externalGroup.applyChanges()
         guard let originalConfig = targetConfig(for: from),
               let headerSearchPaths = originalConfig.buildSettings["HEADER_SEARCH_PATHS"] as? [String] else {
             throw "Couldn't find an original configuration".error()

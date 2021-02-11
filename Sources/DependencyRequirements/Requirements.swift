@@ -39,7 +39,7 @@ public class IosProjectContext : ProjectContext {
 public protocol MainIosProjectRequirements : MainProjectRequirements {
         
     var iosContext : IosProjectContext { get }
-    var externalGroupName : String { get }
+    var externalGroup : PBXGroup { get }
     
     func addNewFrameworks() throws
 
