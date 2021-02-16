@@ -40,7 +40,7 @@ public protocol MainIosProjectRequirements : MainProjectRequirements {
         
     var iosContext : IosProjectContext { get }
     var externalGroup : PBXGroup { get }
-    
+
     func addNewFrameworks() throws
 
     init(context : IosProjectContext)
