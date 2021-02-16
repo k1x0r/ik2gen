@@ -85,21 +85,33 @@ public extension ProjectContext {
             guard let target = targetRef.value, target.name.hasSuffix("PackageDescription") else {
                 continue
             }
+            for buildPhaseRef in target.buildPhases {
+                guard let buildPhase = buildPhaseRef.value else {
+                    continue
+                }
+                buildPhase.files = buildPhase.files.filter { buildFileRef -> Bool in
+                    guard let fileRef = buildFileRef.value?.fileRef?.value, fileRef.lastPathComponentOrName == "Package.swift" else {
+                        return true
+                    }
+                    guids.append(buildFileRef.id)
+//                    guids.append(fileRef.id)
+                    return false
+                }
+                buildPhase.applyChanges()
+                
+            }
+        }
+        for targetRef in spmProject.project.targets {
+            guard let target = targetRef.value, target.name.hasSuffix("PackageDescription") else {
+                continue
+            }
             guids.append(targetRef.id)
             if let buildConfigList = target.buildConfigurationList.value {
                 for configRef in buildConfigList.buildConfigurations {
                     guids.append(configRef.id)
                 }
             }
-            for buildPhaseRef in target.buildPhases {
-                guids.append(buildPhaseRef.id)
-                guard let buildPhase = buildPhaseRef.value else {
-                    continue
-                }
-                for buildFileRef in buildPhase.files {
-                    guids.append(buildFileRef.id)
-                }
-            }
+            target.deleteBuildPhases(where: { _ in true })
         }
         for guid in guids {
             spmProject.project.allObjects.objects.removeValue(forKey: guid)
@@ -118,6 +130,72 @@ public extension MainIosProjectRequirements {
     func targetConfig(for target: String) -> XCBuildConfiguration? {
         return iosContext.spmProject.project.target(named: target)?.buildConfigurationList.value?.buildConfigurations.first?.value 
     }
+   
+    func removeLibraryLinkage(include : (PBXTarget)->Bool) {
+        var guids = [Guid]()
+        for targetRef in context.spmProject.project.targets {
+            guard let target = targetRef.value,
+                  include(target),
+                  let frameworksPhase = target.buildPhaseOptional(of: PBXFrameworksBuildPhase.self) else {
+                continue
+            }
+            for bfileRef in frameworksPhase.files {
+                guids.append(bfileRef.id)
+            }
+            frameworksPhase.files = []
+        }
+        for guid in guids {
+            context.spmProject.project.allObjects.objects.removeValue(forKey: guid)
+        }
+    }
+    
+    func sortExternalGroup() {
+        externalGroup.children.sort(by: {
+            $0.value?.lastPathComponentOrName < $1.value?.lastPathComponentOrName
+        })
+        externalGroup.applyChanges()
+    }
+    
+    func copyBuildSettings(from: String, to : [String]) throws {
+        guard let originalConfig = targetConfig(for: from),
+              let headerSearchPaths = originalConfig.buildSettings["HEADER_SEARCH_PATHS"] as? [String] else {
+            throw "Couldn't find an original configuration".error()
+        }
+        let targets = to.compactMap { iosContext.mainProject.project.target(named: $0) }
+        let sourceHeaderSearchPaths = headerSearchPaths.map {
+            $0.replacingOccurrences(of: "$(SRCROOT)/", with: "$(SRCROOT)/Dependencies/")
+        }
+        let otherSwiftFlags = try swiftFlags(from: from)
+        do {
+            for target in targets {
+                target.updateBuildSettings([
+                    "OTHER_SWIFT_FLAGS" : otherSwiftFlags,
+                    "HEADER_SEARCH_PATHS" : sourceHeaderSearchPaths
+                ])
+            }
+        } catch {
+            print("Error with processing swift flags: \(error)")
+        }
+    }
+    
+    func addSingleFramework(name: String, linkType : PBXProject.FrameworkType, from: String, to : [String]) throws {
+        let allObjects = iosContext.mainProject.project.allObjects
+        
+        let frameworkObj = PBXFileReference(emptyObjectWithId: Guid("FREF-C-" + name.guidStyle), allObjects: allObjects)
+        frameworkObj.name = name
+        frameworkObj.path = name
+        frameworkObj.lastKnownFileType = .archive
+        frameworkObj.sourceTree = .relativeTo(.buildProductsDir)
+        let ref = allObjects.createReference(value: frameworkObj)
+        let targets = to.compactMap { iosContext.mainProject.project.target(named: $0) }
+        guard to.count == targets.count else {
+            throw "Not all targets '\(to)' were found!".error()
+        }
+        
+        try iosContext.mainProject.project.addFramework(framework: frameworkObj, group: externalGroup, targets: targets.map { (linkType, $0) })
+        sortExternalGroup()
+        try copyBuildSettings(from: from, to: to)
+    }
     
     func copyFrameworks(from: String, to : [String], linkType : (TargetProcessing?, PBXFileReference)->(PBXProject.FrameworkType?)) throws {
         let frameworks = try context.frameworks(for: from, to: iosContext.mainProject.project.allObjects)
@@ -133,28 +211,8 @@ public extension MainIosProjectRequirements {
             let targetsWithType = targets.map { (fLinkType, $0) }
             try iosContext.mainProject.project.addFramework(framework: framework, group: externalGroup, targets: targetsWithType)
         } 
-        externalGroup.children.sort(by: {
-            $0.value?.lastPathComponentOrName < $1.value?.lastPathComponentOrName
-        })
-        externalGroup.applyChanges()
-        guard let originalConfig = targetConfig(for: from),
-              let headerSearchPaths = originalConfig.buildSettings["HEADER_SEARCH_PATHS"] as? [String] else {
-            throw "Couldn't find an original configuration".error()
-        }
-        let sourceHeaderSearchPaths = headerSearchPaths.map {
-            $0.replacingOccurrences(of: "$(SRCROOT)/", with: "$(SRCROOT)/Dependencies/")
-        }
-        let otherSwiftFlags = try swiftFlags(from: from)
-        do {
-            for target in targets {
-                target.updateBuildSettings([
-                    "OTHER_SWIFT_FLAGS" : otherSwiftFlags,
-                    "HEADER_SEARCH_PATHS" : sourceHeaderSearchPaths
-                ])
-            }
-        } catch {
-            print("Error with processing swift flags: \(error)")
-        }
+        sortExternalGroup()
+        try copyBuildSettings(from: from, to: to)
     }
     
     func swiftFlags(from target : String) throws -> String {

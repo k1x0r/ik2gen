@@ -54,9 +54,6 @@ for ref in configurations.buildConfigurations {
 }
 try ik2project.mainBuildConfigurationDidFinish(configList: configurations)
 
-
-print("Groups: \(dependenciesProject.project.groups)")
-try dependenciesProject.addXibsAndStoryboards()
     
 for ref in dependenciesProject.project.targets {
     guard let target = ref.value, let buildConfig = target.buildConfigurationList.value, !target.name.hasSuffix("PackageDescription") else {
@@ -70,7 +67,7 @@ for ref in dependenciesProject.project.targets {
         bConfig.buildSettings.add(for: "FRAMEWORK_SEARCH_PATHS", values: ["$(SDKROOT)/usr/lib"])
         if ik2project is MainIosProjectRequirements {
             bConfig.buildSettings = bConfig.buildSettings.merging([
-                "PRODUCT_BUNDLE_IDENTIFIER" : "com.k1x.\(target.name)",
+                "PRODUCT_BUNDLE_IDENTIFIER" : "com.framework.\(target.name)",
                 "PRODUCT_NAME" : target.name,
                 "PRODUCT_MODULE_NAME" : target.name,
                 "APPLICATION_EXTENSION_API_ONLY" : module?.extensionApiOnly ?? true ? "YES" : "NO"
@@ -114,7 +111,7 @@ guard let iosProject = ik2project as? MainIosProjectRequirements else {
 // as a var
 let mainProject = iosProject.iosContext.mainProject
 
-mainProject.project.removeFrameworks(frameworks: iosProject.externalGroup.frameworks, groups: [iosProject.externalGroup])
+mainProject.project.removeFrameworks(frameworks: iosProject.externalGroup.childrenSet, groups: [iosProject.externalGroup])
 try iosProject.addNewFrameworks()
 
 
