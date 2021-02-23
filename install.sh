@@ -1,8 +1,10 @@
 #!/bin/bash 
 set -v -x #echo on
 
-swift build --target ik2proj -c release
+unset K2PROJ
 swift package generate-xcodeproj
+export K2PROJ=true
+swift build -c release
 
 echo "Removing old ik2gen..."
 rm /usr/local/bin/ik2gen

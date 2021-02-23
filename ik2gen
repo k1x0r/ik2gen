@@ -1,15 +1,12 @@
 #!/bin/bash
 
-echo Hello World!
 set -x
 
-PROJECT_DIR=$PWD
 INSTALL_DIR=#_INSTALL_DIR_#
-PROJECT=$(basename $PROJECT_DIR)
 
 proj() {
+    export CURRENT_DIR=$PWD
     cd $INSTALL_DIR
-    export TARGET_DIR=$PROJECT_DIR
     export INSTALL_DIR=$INSTALL_DIR
     ./.build/release/ik2proj
 }

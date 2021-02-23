@@ -241,27 +241,24 @@ public extension MainIosProjectRequirements {
 }
 
 public extension PBXTarget {
-        
-    func addRswift(project : PBXProject, shellAppend: String = "") throws {
-        guard let (path, group) : (String, PBXGroup) = allObjects.objects.firstMap(where: { (key, value) in
-            guard let group = value as? PBXGroup, group.name == self.name,
-                  let path = group.path, !path.isEmpty else {
-                return nil
-            }
-            return (path, group)
-        }) else {
-            throw "Could not find group for target '\(name)'".error()
-        }
-        let phase = buildPhase(of: PBXShellScriptBuildPhase.self) { (phases, ref) in
-            phases.insert(ref, at: 0)
-        }
+
+    func addRswift(project : PBXProject, group : PBXGroup, path: String, shellAppend: String = "") throws {
+        let name = path.lastPathComponent
+        let namePhase = "[ik2gen-R.swift] Generate \(name)"
+        let phase : PBXShellScriptBuildPhase = buildPhase(where: {
+            $0.name == namePhase
+        }, append: { phases, phase in
+            phases.insert(phase, at: 0)
+        })
+        phase.name = namePhase
+
         phase.inputPaths = [ "$TEMP_DIR/rswift-lastrun" ]
-        phase.outputPaths = [ "$SRCROOT/\(path)/R.generated.swift" ]
-        phase.shellScript = "# Type a script or drag a script file from your workspace to insert its path.\n\"$SRCROOT/../rswift\" generate \"$SRCROOT/\(path)/R.generated.swift\"" + shellAppend
+        phase.outputPaths = [ "$SRCROOT/\(path)" ]
+        phase.shellScript = "# Type a script or drag a script file from your workspace to insert its path.\n\"$SRCROOT/../rswift\" generate \"$SRCROOT/\(path)\"" + shellAppend
         
-        if !group.fileRefs.contains(where: { $0.value?.path?.contains("R.generated.swift") ?? false }) {
+        if !group.fileRefs.contains(where: { $0.value?.path?.contains(name) ?? false }) {
             try project.addSourceFiles(files: [
-                project.newFileReference(name: "R.generated.swift", path: "R.generated.swift", sourceTree: .group),
+                project.newFileReference(name: name, path: path, sourceTree: .relativeTo(.sourceRoot)),
             ], group: allObjects.createReference(value: group), targets: [self])
         }
         

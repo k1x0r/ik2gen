@@ -8,30 +8,28 @@ func getEnvironmentVar(_ name: String) -> String? {
 }
 
 do {
-    //// The project from which Package.swift is retrieved
-    // current dir + path to project. Let's call this SPM project. Maybe from file .ik2proj because it's permanent. If the file is not found then we throw an error and display error message
-    
     // remove Sources/ik2proj/main.swift
     // print("env \(ProcessInfo.processInfo.environment)")
     guard let ik2genRootDir = ProcessInfo.processInfo.environment["INSTALL_DIR"]?.appendIfNotEnds("/") else {
         fatalError("Couldn't get ik2gen install directory")
     }
-    print("ik2gen install directory: \(ik2genRootDir)")
-    guard let targetDirectory = ProcessInfo.processInfo.environment["TARGET_DIR"]?.appendIfNotEnds("/") else {
+    guard let currentDirectory = ProcessInfo.processInfo.environment["CURRENT_DIR"]?.appendIfNotEnds("/") else {
         fatalError("Could not get current directory")
     }
+
+    let paths = try ProjectPaths.parse(from: currentDirectory + ".ik2proj")
+    
+    let spmUrl = URL(fileURLWithPath: currentDirectory + paths.spmProject)
+    let targetDirectory = spmUrl.deletingLastPathComponent().path.appendIfNotEnds("/")
     print("Target directory: \(targetDirectory)")
 
-    let paths = try ProjectPaths.parse(from: targetDirectory + ".ik2proj")
-    
-    let spmUrl = URL(fileURLWithPath: targetDirectory + paths.spmProject)
-    let ret = shell(launchPath: "/usr/bin/swift", arguments: ["package", "generate-xcodeproj"], fromDirectory: spmUrl.deletingLastPathComponent().path)
+    let ret = shell(launchPath: "/usr/bin/swift", arguments: ["package", "generate-xcodeproj"], fromDirectory: targetDirectory)
     print("\(ret.output ?? "<no output from terminal>")\nGenerate XcodeProj returnCode: \(ret.returnCode) ")
     guard ret.returnCode == 0 else {
         fatalError("Generate-xcodeproj return code is not 0")
     }
     
-    let dependenciesProject = try XCProjectFile(xcodeprojURL: URL(fileURLWithPath: targetDirectory + paths.spmProject))
+    let dependenciesProject = try XCProjectFile(xcodeprojURL: URL(fileURLWithPath: currentDirectory + paths.spmProject))
 
     /// current dir
     let copyProjectUrl = URL(fileURLWithPath: targetDirectory + "ik2gen.xcodeproj")
@@ -74,7 +72,7 @@ do {
     
     guard let templateTarget = ik2genProject.project.target(named: "ProjectTemplate") as? PBXNativeTarget,
           let ik2genTarget = ik2genProject.project.target(named: "ik2gen") as? PBXNativeTarget,
-          let productsGroup = ik2genProject.project.mainGroup.value?.subGroups.first(where: { $0.value?.name == "Products" }) else {
+          let productsGroup = ik2genProject.project.mainGroup.value?.subGroups.first(where: { $0.value?.name == "Products" })?.value else {
         fatalError("ProjectTemplate target not found")
     }
     let appendPath = ik2genProjectUrl.deletingLastPathComponent().path.appendIfNotEnds("/")
