@@ -4,6 +4,13 @@ set -x
 
 INSTALL_DIR=#_INSTALL_DIR_#
 
+update() {
+    cd $INSTALL_DIR
+    git pull
+    swift package update
+    sh install.sh
+}
+
 proj() {
     export CURRENT_DIR=$PWD
     cd $INSTALL_DIR
@@ -12,12 +19,14 @@ proj() {
 }
 
 gen() {
-    cd $PROJECT_DIR
     xcodebuild -project ik2gen.xcodeproj -target ik2gen
     ./build/Release/ik2gen
 }
 
 case $1 in
+    update)
+        update
+        ;;
     proj)
         proj
         ;;
