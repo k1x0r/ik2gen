@@ -3,12 +3,7 @@
 import PackageDescription
 import Darwin.C
 
-var buildK2Proj = false
-
-if getenv("K2PROJ") != nil {
-    buildK2Proj = true
-}
-
+var buildK2Proj = getenv("K2PROJ") != nil
 print("Building k2proj: \(buildK2Proj)")
 
 let package = Package(
