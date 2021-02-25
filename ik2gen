@@ -2,6 +2,7 @@
 
 set -x
 
+export CURRENT_DIR=$PWD
 INSTALL_DIR=#_INSTALL_DIR_#
 
 update() {
@@ -12,13 +13,13 @@ update() {
 }
 
 proj() {
-    export CURRENT_DIR=$PWD
     cd $INSTALL_DIR
     export INSTALL_DIR=$INSTALL_DIR
     ./.build/release/ik2proj
 }
 
 gen() {
+    cd $CURRENT_DIR
     xcodebuild -project ik2gen.xcodeproj -target ik2gen
     ./build/Release/ik2gen
 }
