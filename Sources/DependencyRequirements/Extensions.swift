@@ -19,6 +19,22 @@ public struct ProjectPaths : Decodable {
     }
 }
 
+public extension PBXProject {
+    
+    func loopBuildConfigurations(for targetName : String, element : (XCBuildConfiguration)->()) {
+        guard let configList = target(named: targetName)?.buildConfigurationList.value else {
+            return
+        }
+        for buildConfigRef in configList.buildConfigurations {
+            guard let buildConfig = buildConfigRef.value else {
+                return
+            }
+            element(buildConfig)
+        }
+    }
+    
+}
+
 public extension PBXReference {
     
     func nameWithoutExtension() throws -> String {
@@ -279,13 +295,10 @@ public func shell(launchPath: String, arguments: [String], fromDirectory : Strin
     task.launchPath = launchPath
     task.arguments = arguments
     task.currentDirectoryPath = fromDirectory
-    
     let pipe = Pipe()
     task.standardOutput = pipe
     task.launch()
-    
     let output = String(data: pipe.fileHandleForReading.readDataToEndOfFile(), encoding: .utf8)
     task.waitUntilExit()
-    
     return (task.terminationStatus, output)
 }

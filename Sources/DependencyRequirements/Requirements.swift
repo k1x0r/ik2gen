@@ -15,6 +15,7 @@ public class ProjectContext {
     public var spmProject : XCProjectFile
     public var targets : [String : TargetProcessing]
     open var platform : ProjectPlatform
+    
     public init(spmProject : XCProjectFile, targets : [String : TargetProcessing]) {
         self.platform = .macOS
         self.spmProject = spmProject
