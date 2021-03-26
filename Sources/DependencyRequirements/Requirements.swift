@@ -114,8 +114,13 @@ open class TargetProcessing {
     }
 }
 
-public protocol ModuleRequirements {
+public protocol ModuleRequirements : class {
 
     static var targets : [TargetProcessing] { get }
-
+    
+    init(project : XCProjectFile)
+    
+    func targetBuildConfigurationLoop(target: PBXTarget, list buildConfig : XCConfigurationList) throws
+    func targetBuildConfigurationDidFinish() throws
+    
 }

@@ -20,17 +20,19 @@ guard ret.returnCode == 0 else {
     fatalError("Generate-xcodeproj return code is not 0")
 }
 let ik2project : MainProjectRequirements
+let spmProject : XCProjectFile
 if let Class = MainProject.self as? MainIosProjectRequirements.Type {
-    let spmProject = try XCProjectFile(xcodeprojURL: spmUrl)
+    spmProject = try XCProjectFile(xcodeprojURL: spmUrl)
     let mainProject = try XCProjectFile(xcodeprojURL: URL(fileURLWithPath: currentDirectory + paths.mainProject))
     ik2project = Class.init(context: IosProjectContext(spmProject : spmProject, mainProject : mainProject, targets: modules))
 } else if let Class = MainProject.self as? MainSpmProjectRequirements.Type {
-    let spmProject = try XCProjectFile(xcodeprojURL: spmUrl)
+    spmProject = try XCProjectFile(xcodeprojURL: spmUrl)
     ik2project = Class.init(context: ProjectContext(spmProject : spmProject, targets: modules))
 } else {
     fatalError("No supported types found")
 }
-    
+
+let k2modules : [ModuleRequirements] = i2genModules.map { $0.init(project: spmProject) }
 let dependenciesProject = ik2project.context.spmProject
     
 guard let configurations = dependenciesProject.project.buildConfigurationList.value else {
@@ -77,9 +79,14 @@ for ref in dependenciesProject.project.targets {
     }
     try module?.process(target: target)
     try ik2project.targetBuildConfigurationLoop(target: target, list: buildConfig)
-
+    for k2Module in k2modules {
+        try k2Module.targetBuildConfigurationLoop(target: target, list: buildConfig)
+    }
 }
 try ik2project.targetBuildConfigurationDidFinish()
+for k2Module in k2modules {
+    try k2Module.targetBuildConfigurationDidFinish()
+}
 
     
 

@@ -10,6 +10,14 @@ import Foundation
 import XcodeEdit
 import k2Utils
 
+public extension String {
+
+    func swiftImportHeaderPath(module : String) -> String {
+        return "$(OBJROOT)/\(self).build/$(CONFIGURATION)$(EFFECTIVE_PLATFORM_NAME)/\(module).build/DerivedSources"
+    }
+
+}
+
 public struct ProjectPaths : Decodable {
     public let spmProject : String
     public let mainProject : String
@@ -20,6 +28,15 @@ public struct ProjectPaths : Decodable {
 }
 
 public extension PBXProject {
+    
+    func group(where whereClosure : (PBXGroup) -> Bool) -> PBXGroup? {
+        for (_, obj) in allObjects.objects {
+            if let group = obj as? PBXGroup, whereClosure(group) {
+               return group
+            }
+        }
+        return nil
+    }
     
     func loopBuildConfigurations(for targetName : String, element : (XCBuildConfiguration)->()) {
         guard let configList = target(named: targetName)?.buildConfigurationList.value else {
@@ -258,7 +275,7 @@ public extension MainIosProjectRequirements {
 
 public extension PBXTarget {
 
-    func addRswift(project : PBXProject, group : PBXGroup, path: String, shellAppend: String = "") throws {
+    func addRswift(project : PBXProject, group : PBXGroup, path: String, shellScript: ((String)->String)? = nil, destTarget : PBXTarget? = nil) throws {
         let name = path.lastPathComponent
         let namePhase = "[ik2gen-R.swift] Generate \(name)"
         let phase : PBXShellScriptBuildPhase = buildPhase(where: {
@@ -270,13 +287,14 @@ public extension PBXTarget {
 
         phase.inputPaths = [ "$TEMP_DIR/rswift-lastrun" ]
         phase.outputPaths = [ "$SRCROOT/\(path)" ]
-        phase.shellScript = "# Type a script or drag a script file from your workspace to insert its path.\n\"$SRCROOT/../rswift\" generate \"$SRCROOT/\(path)\"" + shellAppend
+        phase.shellScript = shellScript?(path) ?? "\"$SRCROOT/../rswift\" generate \"$SRCROOT/\(path)\""
         
-        if !group.fileRefs.contains(where: { $0.value?.path?.contains(name) ?? false }) {
-            try project.addSourceFiles(files: [
-                project.newFileReference(name: name, path: path, sourceTree: .relativeTo(.sourceRoot)),
-            ], group: allObjects.createReference(value: group), targets: [self])
+        group.children = group.children.filter {
+            !($0.value?.path?.contains(name) ?? false)
         }
+        try project.addSourceFiles(files: [
+            project.newFileReference(name: name, path: path, sourceTree: .relativeTo(.sourceRoot)),
+        ], group: allObjects.createReference(value: group), targets: name.hasSuffix(".h") ? [] : [destTarget ?? self])
         
     }
     
