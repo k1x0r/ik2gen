@@ -43,6 +43,12 @@ for ref in configurations.buildConfigurations {
     guard let config = ref.value else {
         continue
     }
+    config.buildSettings = config.buildSettings.merging([
+        "OTHER_CFLAGS" : [
+            "$(inherited)",
+            "-DK2GEN_PACKAGE"
+        ]
+    ]) { $1 }
     if ik2project is MainIosProjectRequirements {
         config.buildSettings = config.buildSettings.merging([
             "SDKROOT" : "iphoneos",
