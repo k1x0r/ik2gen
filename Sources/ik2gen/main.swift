@@ -51,6 +51,11 @@ for ref in configurations.buildConfigurations {
     ]) { $1 }
     if ik2project is MainIosProjectRequirements {
         config.buildSettings = config.buildSettings.merging([
+            "WARNING_CFLAGS" : "-Wno-nullability-completeness",
+            "OTHER_SWIFT_FLAGS" : [
+                "-Xcc",
+                "-Wno-nullability-completeness"
+            ],
             "SDKROOT" : "iphoneos",
             "CURRENT_PROJECT_VERSION" : "1.0",
             "ENABLE_BITCODE" : "YES",
