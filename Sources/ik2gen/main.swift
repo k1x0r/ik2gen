@@ -59,7 +59,7 @@ for ref in configurations.buildConfigurations {
             "SDKROOT" : "iphoneos",
             "CURRENT_PROJECT_VERSION" : "1.0",
             "ENABLE_BITCODE" : "YES",
-            "IPHONEOS_DEPLOYMENT_TARGET" : "12.2",
+            "IPHONEOS_DEPLOYMENT_TARGET" : "14.2",
             "DEBUG_INFORMATION_FORMAT" : config.name == "Release" ? "dwarf-with-dsym" : "dwarf"
         ]) { $1 }
     }
