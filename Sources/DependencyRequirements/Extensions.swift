@@ -287,7 +287,11 @@ public extension PBXTarget {
 
         phase.inputPaths = [ "$TEMP_DIR/rswift-lastrun" ]
         phase.outputPaths = [ "$SRCROOT/\(path)" ]
-        phase.shellScript = shellScript?(path) ?? "\"$SRCROOT/../rswift\" generate \"$SRCROOT/\(path)\""
+        phase.shellScript = shellScript?(path) ?? """
+        if [ "${ACTION}" != "indexbuild" ]; then
+        \"$SRCROOT/../rswift\" generate \"$SRCROOT/\(path)\"
+        fi
+        """
         
         group.children = group.children.filter {
             !($0.value?.path?.contains(name) ?? false)
