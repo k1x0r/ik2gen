@@ -215,7 +215,7 @@ public extension MainIosProjectRequirements {
         let allObjects = iosContext.mainProject.project.allObjects
         
         let frameworkObj = PBXFileReference(emptyObjectWithId: Guid("FREF-C-" + name.guidStyle), allObjects: allObjects)
-        frameworkObj.name = name
+//        frameworkObj.name = name
         frameworkObj.path = name
         frameworkObj.lastKnownFileType = .archive
         frameworkObj.sourceTree = .relativeTo(.buildProductsDir)
