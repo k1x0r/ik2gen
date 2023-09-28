@@ -23,11 +23,11 @@ do {
     let targetDirectory = spmUrl.deletingLastPathComponent().path.appendIfNotEnds("/")
     print("Target directory: \(targetDirectory)")
 
-    let ret = shell(launchPath: "/usr/bin/swift", arguments: ["package", "generate-xcodeproj"], fromDirectory: targetDirectory)
-    print("\(ret.output ?? "<no output from terminal>")\nGenerate XcodeProj returnCode: \(ret.returnCode) ")
-    guard ret.returnCode == 0 else {
-        fatalError("Generate-xcodeproj return code is not 0")
-    }
+//    let ret = shell(launchPath: "/usr/bin/swift", arguments: ["package", "generate-xcodeproj"], fromDirectory: targetDirectory)
+//    print("\(ret.output ?? "<no output from terminal>")\nGenerate XcodeProj returnCode: \(ret.returnCode) ")
+//    guard ret.returnCode == 0 else {
+//        fatalError("Generate-xcodeproj return code is not 0")
+//    }
     
     let dependenciesProject = try XCProjectFile(xcodeprojURL: URL(fileURLWithPath: currentDirectory + paths.spmProject))
 

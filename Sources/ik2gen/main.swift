@@ -14,11 +14,6 @@ let modules = i2genModules.reduce(into: [String : TargetProcessing]()) { (res, n
 }
 
 let spmUrl = URL(fileURLWithPath: currentDirectory + paths.spmProject)
-let ret = shell(launchPath: "/usr/bin/swift", arguments: ["package", "generate-xcodeproj"], fromDirectory: spmUrl.deletingLastPathComponent().path)
-print("\(ret.output ?? "<no output from terminal>")\nGenerate XcodeProj returnCode: \(ret.returnCode) ")
-guard ret.returnCode == 0 else {
-    fatalError("Generate-xcodeproj return code is not 0")
-}
 let ik2project : MainProjectRequirements
 let spmProject : XCProjectFile
 if let Class = MainProject.self as? MainIosProjectRequirements.Type {
@@ -59,7 +54,7 @@ for ref in configurations.buildConfigurations {
             "SDKROOT" : "iphoneos",
             "CURRENT_PROJECT_VERSION" : "1.0",
             "ENABLE_BITCODE" : "YES",
-            "IPHONEOS_DEPLOYMENT_TARGET" : "14.2",
+            "IPHONEOS_DEPLOYMENT_TARGET" : "15.5",
             "DEBUG_INFORMATION_FORMAT" : config.name == "Release" ? "dwarf-with-dsym" : "dwarf"
         ]) { $1 }
     }

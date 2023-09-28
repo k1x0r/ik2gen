@@ -1,8 +1,11 @@
 #!/bin/bash 
 set -v -x #echo on
 
+export DEVELOPER_DIR=/Applications/Xcode14_2.app/Contents/Developer
+
 git pull
 unset K2PROJ
+which swift
 swift package generate-xcodeproj
 export K2PROJ=true
 swift build -c release
